@@ -70,7 +70,7 @@ class Blog
             !isset($_FILES['image']['error']) ||
             is_array($_FILES['image']['error'])
         ) {
-            throw new RuntimeException('Invalid parameters.');
+            return '';
         }
         if($_FILES['image']['size'] == 0){
             return "";
@@ -80,14 +80,15 @@ class Blog
         }
         $path_parts = pathinfo($_FILES["image"]["name"]);
         $ex = $path_parts['extension'];
-        $filename =  sha1_file($_FILES['image']['tmp_name']).$ex;
+        $filename =  sha1($_FILES['image']['tmp_name']+time()).'.'.$ex;
         $path = dirname(__FILE__).'/../uploads/'.$filename;
-        if (!move_uploaded_file(
-            $_FILES['image']['tmp_name'],
-            $filename
-        )) {
-            throw new RuntimeException('Failed to move uploaded file.');
-        }
+        // if (!move_uploaded_file(
+        //     $_FILES['image']['tmp_name'],
+        //     $path
+        // )) {
+        //     throw new RuntimeException('Failed to move uploaded file.');
+        // }
+        $this->resizeImage($path);
 
         return $filename;
     }
@@ -116,5 +117,32 @@ class Blog
 
         file_put_contents(dirname(__FILE__) . '/../data/data.php', json_encode($json));
 
+    }
+
+    public function resizeImage($targetFile) {
+        /*
+            Resize image to be less than 300px x 300px
+        */
+        $maxDim = 300;
+        list($width, $height, $type, $attr) = getimagesize( $_FILES['image']['tmp_name'] );
+        if ( $width > $maxDim || $height > $maxDim ) {
+            $target_filename = $_FILES['image']['tmp_name'];
+            $fn = $_FILES['image']['tmp_name'];
+            $size = getimagesize( $fn );
+            $ratio = $size[0]/$size[1];
+            if( $ratio > 1) {
+                $width = $maxDim;
+                $height = $maxDim/$ratio;
+            } else {
+                $width = $maxDim*$ratio;
+                $height = $maxDim;
+            }
+            $src = imagecreatefromstring( file_get_contents( $fn ) );
+            $dst = imagecreatetruecolor( $width, $height );
+            imagecopyresampled( $dst, $src, 0, 0, 0, 0, $width, $height, $size[0], $size[1] );
+            imagedestroy( $src );
+            imagepng( $dst, $targetFile );
+            imagedestroy( $dst );
+        }
     }
 }
